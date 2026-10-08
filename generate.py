@@ -11,9 +11,11 @@ crawler-readable page into ./public:
 Columns used on the page:   Guest Name, Episode Title, Link to Episode Article,
                             Guest Website Addy (only when Backlink Y/N is "Y"),
                             YouTube Link
-Columns used but NEVER shown or written into the page:
-                            Release Date, Episode # (sorting only),
-                            Backlink Y/N (decides whether the website link shows)
+Columns used but never shown on the page:
+                            Episode # (sorting only),
+                            Backlink Y/N (decides whether the website link shows),
+                            Release Date (sorting, plus the hidden video upload
+                            date Google requires; see VIDEO_LABELS)
 Column ignored entirely:    Category
 
 Settings (environment variables):
@@ -25,6 +27,10 @@ Settings (environment variables):
                     When both are set, article links starting with the old
                     address are rewritten to the new one. Use this after the
                     site move so you never have to edit the Sheet.
+  VIDEO_LABELS      optional  set to "off" to leave out the hidden video labels.
+                    When on (default), each video label includes the episode's
+                    Release Date as its upload date, which Google requires.
+                    The date is in the page code only, never shown on the page.
 
 Uses only the Python standard library.
 """
@@ -46,6 +52,7 @@ SITE_URL = os.environ.get("SITE_URL", "").strip().rstrip("/")
 CUSTOM_DOMAIN = os.environ.get("CUSTOM_DOMAIN", "").strip()
 OLD_ARTICLE_BASE = os.environ.get("OLD_ARTICLE_BASE", "").strip().rstrip("/")
 NEW_ARTICLE_BASE = os.environ.get("NEW_ARTICLE_BASE", "").strip().rstrip("/")
+VIDEO_LABELS = os.environ.get("VIDEO_LABELS", "").strip().lower() not in {"off", "no", "false", "0"}
 
 SHOW_NAME = "The Art of Imperfect Adulting"
 SHOW_URL = "https://www.youtube.com/@imperfectadulting"
@@ -165,6 +172,7 @@ def build_guests(rows):
             "website": to_url(r.get("Guest Website Addy")) if is_yes(r.get("Backlink Y/N")) else None,
             "youtube": yt,
             "yt_id": youtube_id(yt),
+            "released": parse_date(r.get("Release Date")),
         })
     return guests
 
@@ -216,12 +224,16 @@ def structured_data(guests):
             ep["url"] = g["article"]
         if SITE_URL:
             ep["@id"] = f"{SITE_URL}/#{g['slug']}"
-        if g["yt_id"]:
+        # Google requires an upload date for every video label. Videos are labeled
+        # only when the row has a readable Release Date, and never when
+        # VIDEO_LABELS is set to "off". The date is never shown on the page.
+        if g["yt_id"] and VIDEO_LABELS and g["released"] != datetime.min:
             ep["video"] = {
                 "@type": "VideoObject",
                 "name": g["title"],
                 "description": f'{g["name"]} on {SHOW_NAME}: {g["title"]}',
                 "thumbnailUrl": f'https://i.ytimg.com/vi/{g["yt_id"]}/hqdefault.jpg',
+                "uploadDate": g["released"].strftime("%Y-%m-%dT12:00:00-05:00"),
                 "embedUrl": f'https://www.youtube.com/embed/{g["yt_id"]}',
                 "url": g["youtube"],
             }
