@@ -27,6 +27,8 @@ Settings (environment variables):
                     When both are set, article links starting with the old
                     address are rewritten to the new one. Use this after the
                     site move so you never have to edit the Sheet.
+  GA_MEASUREMENT_ID optional  Google Analytics 4 ID, e.g. G-ABC123XYZ. When set,
+                    the analytics tag is added so visits show in Analytics.
   VIDEO_LABELS      optional  set to "off" to leave out the hidden video labels.
                     When on (default), each video label includes the episode's
                     Release Date as its upload date, which Google requires.
@@ -53,6 +55,10 @@ CUSTOM_DOMAIN = os.environ.get("CUSTOM_DOMAIN", "").strip()
 OLD_ARTICLE_BASE = os.environ.get("OLD_ARTICLE_BASE", "").strip().rstrip("/")
 NEW_ARTICLE_BASE = os.environ.get("NEW_ARTICLE_BASE", "").strip().rstrip("/")
 VIDEO_LABELS = os.environ.get("VIDEO_LABELS", "").strip().lower() not in {"off", "no", "false", "0"}
+GA_MEASUREMENT_ID = os.environ.get("GA_MEASUREMENT_ID", "").strip().upper()
+if GA_MEASUREMENT_ID and not re.match(r"^G-[A-Z0-9]{4,15}$", GA_MEASUREMENT_ID):
+    print(f"Ignoring GA_MEASUREMENT_ID '{GA_MEASUREMENT_ID}': it should look like G-ABC123XYZ.")
+    GA_MEASUREMENT_ID = ""
 
 SHOW_NAME = "The Art of Imperfect Adulting"
 SHOW_URL = "https://www.youtube.com/@imperfectadulting"
@@ -252,6 +258,16 @@ def structured_data(guests):
     return text.replace("<", "\\u003c").replace(">", "\\u003e").replace("&", "\\u0026")
 
 
+def analytics_tag():
+    """Google Analytics 4 tag, included only when GA_MEASUREMENT_ID is set."""
+    if not GA_MEASUREMENT_ID:
+        return ""
+    return (f'<script async src="https://www.googletagmanager.com/gtag/js?id={GA_MEASUREMENT_ID}"></script>\n'
+            "<script>window.dataLayer = window.dataLayer || [];"
+            "function gtag(){dataLayer.push(arguments);}"
+            f"gtag('js', new Date());gtag('config', '{GA_MEASUREMENT_ID}');</script>")
+
+
 def build_page(guests):
     e = html.escape
     updated = datetime.now(timezone.utc).strftime("%B %-d, %Y")
@@ -267,6 +283,7 @@ def build_page(guests):
 <meta property="og:title" content="{e(SITE_TITLE, quote=True)}">
 <meta property="og:description" content="{e(SITE_DESCRIPTION, quote=True)}">
 <meta property="og:type" content="website">
+{analytics_tag()}
 <script type="application/ld+json">
 {structured_data(guests)}
 </script>
