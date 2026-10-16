@@ -29,6 +29,8 @@ jobs:
           CUSTOM_DOMAIN: ${{ vars.CUSTOM_DOMAIN }}
           OLD_ARTICLE_BASE: ${{ vars.OLD_ARTICLE_BASE }}
           NEW_ARTICLE_BASE: ${{ vars.NEW_ARTICLE_BASE }}
+          VIDEO_LABELS: ${{ vars.VIDEO_LABELS }}
+          GA_MEASUREMENT_ID: ${{ vars.GA_MEASUREMENT_ID }}
         run: python generate.py
       - uses: actions/upload-pages-artifact@v3
         with:
